@@ -17,28 +17,51 @@ jobs:
 
     - name: Clean up Docker to free space
       run: |
-          docker system prune -a -f
-          docker volume prune -f
+        echo "Cleaning up Docker to free space..."
+        docker system prune -a -f
+        docker volume prune -f
 
     - name: Pull Docker Images and Package
       run: |
         images="${{ github.event.inputs.docker_images }}"
+        if [[ -z "$images" ]]; then
+          echo "No Docker images specified. Exiting."
+          exit 1
+        fi
         IFS=',' read -r -a image_array <<< "$images"
         for image in "${image_array[@]}"; do
+          echo "Pulling and saving image: $image"
           docker pull "${image}" --platform "linux/amd64"
-          docker save "${image}" -o "${image//\//_}-amd64.tar"
+          if [ $? -ne 0 ]; then
+            echo "Failed to pull image: $image"
+            exit 1
+          fi
+          # 使用镜像名称作为文件名
+          filename="${image//\//_}-amd64.tar"
+          docker save "${image}" -o "$filename"
+          if [ $? -ne 0 ]; then
+            echo "Failed to save image: $image"
+            exit 1
+          fi
         done
 
     - name: Compress the TAR files
-      run: tar -czf x86-64-images.tar.gz *-amd64.tar
+      run: |
+        echo "Compressing TAR files..."
+        tar -czf x86-64-images.tar.gz *-amd64.tar
+        if [ $? -ne 0 ]; then
+          echo "Failed to compress TAR files."
+          exit 1
+        fi
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: docker-images-tar
         path: x86-64-images.tar.gz
-        retention-days: 81  # 将保留天数设置为 1 天 最多可设置90天
+        retention-days: 81  # 将保留天数设置为 81 天 最多可设置90天
 
     - name: Clean up intermediate files
       run: |
+        echo "Cleaning up intermediate files..."
         rm *-amd64.tar
