@@ -13,7 +13,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v¾
+      uses: actions/checkout@v4
 
     - name: Clean up Docker to free space
       run: |
