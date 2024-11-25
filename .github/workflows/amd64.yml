@@ -2,10 +2,10 @@ name: x86-64 Pull and Save Docker Image
 on:
   workflow_dispatch:
     inputs:
-      docker_images:
-        description: '请填写docker镜像名称 多个用英文逗号分开'
+      docker_image:
+        description: '请填写docker镜像名称'
         required: true
-        default: 'alpine:latest'  # 设置默认的 Docker 镜像列表
+        default: 'alpine:latest'  # 设置默认的 Docker 镜像名称
 
 jobs:
   pull_and_package:
@@ -17,62 +17,40 @@ jobs:
 
     - name: Clean up Docker to free space
       run: |
-        echo "Cleaning up Docker to free space..."
         docker system prune -a -f
         docker volume prune -f
 
-    - name: Pull Docker Images and Package
+    - name: Pull and Save Docker Image
       run: |
-        images="${{ github.event.inputs.docker_images }}"
-        if [[ -z "$images" ]]; then
-          echo "No Docker images specified. Exiting."
-          exit 1
-        fi
-        IFS=',' read -r -a image_array <<< "$images"
-        for image in "${image_array[@]}"; do
-          echo "Pulling and saving image: $image"
-          docker pull "${image}" --platform "linux/amd64"
-          if [ $? -ne 0 ]; then
-            echo "Failed to pull image: $image"
-            exit 1
-          fi
-          # 使用镜像名称作为文件名
-          filename="${image//\//_}-amd64.tar"
-          docker save "${image}" -o "$filename"
-          if [ $? -ne 0 ]; then
-            echo "Failed to save image: $image"
-            exit 1
-          fi
-        done
-
-    - name: Combine all Docker image tar files into a single tar file
-      run: |
-        echo "Combining all Docker image tar files into a single tar file..."
-        images="${{ github.event.inputs.docker_images }}"
-        IFS=',' read -r -a image_array <<< "$images"
-        combined_filename=""
-        for image in "${image_array[@]}"; do
-          if [[ -z "$combined_filename" ]]; then
-            combined_filename="${image//\//_}-amd64.tar"
-          else
-            combined_filename="${combined_filename}_${image//\//_}-amd64.tar"
-          fi
-        done
-        # 直接使用文件路径创建最终的 .tar 文件
-        tar -cf "$combined_filename" *-amd64.tar
+        image="${{ github.event.inputs.docker_image }}"
+        echo "Pulling and saving image: $image"
+        docker pull "${image}" --platform "linux/amd64"
         if [ $? -ne 0 ]; then
-          echo "Failed to combine TAR files."
+          echo "Failed to pull image: $image"
           exit 1
         fi
+        filename="${image//\//_}-amd64.tar"
+        docker save "${image}" -o "$filename"
+        if [ $? -ne 0 ]; then
+          echo "Failed to save image: $image"
+          exit 1
+        fi
+
+    - name: Compress the TAR file
+      run: |
+        image="${{ github.event.inputs.docker_image }}"
+        filename="${image//\//_}-amd64.tar"
+        tar -czf x86-64-image.tar.gz "$filename"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: docker-images-tar
-        path: "$combined_filename"
-        retention-days: 81  # 将保留天数设置为 81 天 最多可设置90天
+        name: docker-image-tar
+        path: x86-64-image.tar.gz
+        retention-days: 1  # 将保留天数设置为 1 天 最多可设置90天
 
     - name: Clean up intermediate files
       run: |
-        echo "Cleaning up intermediate files..."
-        rm *-amd64.tar
+        image="${{ github.event.inputs.docker_image }}"
+        filename="${image//\//_}-amd64.tar"
+        rm "$filename"
