@@ -58,19 +58,12 @@ jobs:
             combined_filename="${combined_filename}_${image//\//_}-amd64.tar"
           fi
         done
-        # 创建一个临时文件列表
-        temp_file_list=$(mktemp)
-        for image in "${image_array[@]}"; do
-          echo "${image//\//_}-amd64.tar" >> "$temp_file_list"
-        done
-        # 使用 -T 选项指定文件列表
-        tar -cf "$combined_filename" -T "$temp_file_list"
+        # 直接使用文件路径创建最终的 .tar 文件
+        tar -cf "$combined_filename" *-amd64.tar
         if [ $? -ne 0 ]; then
           echo "Failed to combine TAR files."
           exit 1
         fi
-        # 清理临时文件
-        rm "$temp_file_list"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
