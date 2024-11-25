@@ -29,7 +29,8 @@ jobs:
           echo "Failed to pull image: $image"
           exit 1
         fi
-        filename="${image//\//_}-amd64.tar"
+        # 替换文件名中的冒号和斜杠
+        filename=$(echo "${image//\//_}" | tr ':' '_')-amd64.tar
         docker save "${image}" -o "$filename"
         if [ $? -ne 0 ]; then
           echo "Failed to save image: $image"
@@ -40,11 +41,11 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: docker-image-tar
-        path: "${{ github.event.inputs.docker_image }}-amd64.tar"
+        path: "$filename"
         retention-days: 1  # 将保留天数设置为 1 天 最多可设置90天
 
     - name: Clean up intermediate files
       run: |
         image="${{ github.event.inputs.docker_image }}"
-        filename="${image//\//_}-amd64.tar"
+        filename=$(echo "${image//\//_}" | tr ':' '_')-amd64.tar
         rm "$filename"
