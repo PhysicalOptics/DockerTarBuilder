@@ -13,7 +13,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v¾
 
     - name: Clean up Docker to free space
       run: |
@@ -58,11 +58,19 @@ jobs:
             combined_filename="${combined_filename}_${image//\//_}-amd64.tar"
           fi
         done
-        tar -cf "$combined_filename" *-amd64.tar
+        # 创建一个临时文件列表
+        temp_file_list=$(mktemp)
+        for image in "${image_array[@]}"; do
+          echo "${image//\//_}-amd64.tar" >> "$temp_file_list"
+        done
+        # 使用 -T 选项指定文件列表
+        tar -cf "$combined_filename" -T "$temp_file_list"
         if [ $? -ne 0 ]; then
           echo "Failed to combine TAR files."
           exit 1
         fi
+        # 清理临时文件
+        rm "$temp_file_list"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
